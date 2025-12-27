@@ -12,11 +12,26 @@ from abc import ABC, abstractmethod
 import logging
 
 # Load environment variables from .env file
+import os
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    
+    # Determine environment (defaults to 'local')
+    env = os.getenv('ENVIRONMENT', 'local').lower()
+    
+    # Load environment-specific .env file
+    env_file = f'.env.{env}'
+    if os.path.exists(env_file):
+        load_dotenv(env_file)
+        print(f"Loaded environment from {env_file}")
+    else:
+        # Fallback to .env if environment-specific file doesn't exist
+        load_dotenv('.env')
+        print("Loaded environment from .env")
 except ImportError:
-    pass  # dotenv is optional
+    print("python-dotenv not installed. Install with: pip install python-dotenv")
+except Exception as e:
+    print(f"Error loading .env file: {e}")
 
 # Configure logging
 logging.basicConfig(
@@ -26,11 +41,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- CONFIGURATION ---
-WATCHLIST = ['SPY', 'QQQ', 'TSLA', 'NVDA']  # ETFs and stocks
-OPTIONS_WATCHLIST = ['SPY', 'QQQ']  # Tickers to monitor for options
-MAX_DRAWDOWN_PCT = 0.10  # Sell if loss > 10%
-WASH_SALE_DAYS = 31  # IRS rule is 30 days; we use 31 to be safe
-LOG_FILE = 'bot_state.json'
+# Load from environment variables with defaults
+WATCHLIST = os.getenv('WATCHLIST', 'SPY,QQQ,TSLA,NVDA').split(',') if os.getenv('WATCHLIST') else ['SPY', 'QQQ', 'TSLA', 'NVDA']
+OPTIONS_WATCHLIST = os.getenv('OPTIONS_WATCHLIST', 'SPY,QQQ').split(',') if os.getenv('OPTIONS_WATCHLIST') else ['SPY', 'QQQ']
+MAX_DRAWDOWN_PCT = float(os.getenv('MAX_DRAWDOWN_PCT', '0.10'))
+WASH_SALE_DAYS = int(os.getenv('WASH_SALE_DAYS', '31'))
+LOG_FILE = os.getenv('LOG_FILE', 'bot_state.json')
+CYCLE_INTERVAL_SECONDS = int(os.getenv('CYCLE_INTERVAL_SECONDS', '900'))  # 15 minutes default
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'local').lower()
 
 # Broker configuration
 BROKERS = {
@@ -39,13 +57,17 @@ BROKERS = {
         'api_key': os.getenv('SCHWAB_API_KEY', ''),
         'app_secret': os.getenv('SCHWAB_APP_SECRET', ''),
         'callback_url': os.getenv('SCHWAB_CALLBACK_URL', 'https://127.0.0.1:8182/'),
-        'token_path': os.getenv('SCHWAB_TOKEN_PATH', './schwab_token.json')
+        'token_path': os.getenv('SCHWAB_TOKEN_PATH', './schwab_token.json'),
+        'account_id': os.getenv('SCHWAB_ACCOUNT_ID', ''),  # Optional: specific account ID
+        'base_url': os.getenv('SCHWAB_BASE_URL', ''),  # Optional: for sandbox/production URLs
     },
     'robinhood': {
         'enabled': os.getenv('ROBINHOOD_ENABLED', 'false').lower() == 'true',
         'username': os.getenv('ROBINHOOD_USERNAME', ''),
         'password': os.getenv('ROBINHOOD_PASSWORD', ''),
-        'mfa_code': os.getenv('ROBINHOOD_MFA_CODE', '')
+        'mfa_code': os.getenv('ROBINHOOD_MFA_CODE', ''),
+        'api_key': os.getenv('ROBINHOOD_API_KEY', ''),  # If using API key instead of username/password
+        'device_token': os.getenv('ROBINHOOD_DEVICE_TOKEN', ''),  # Device token for authentication
     }
 }
 
@@ -589,14 +611,16 @@ def main():
         return
     
     logger.info("Starting trading bot...")
+    logger.info(f"Environment: {ENVIRONMENT}")
     logger.info(f"Watching: {WATCHLIST}")
     logger.info(f"Options watchlist: {OPTIONS_WATCHLIST}")
+    logger.info(f"Cycle interval: {CYCLE_INTERVAL_SECONDS} seconds")
     
     while True:
         try:
             bot.run_bot_cycle()
-            # Sleep for 15 minutes to respect API limits and not over-trade
-            time.sleep(900)
+            # Sleep based on configured interval to respect API limits and not over-trade
+            time.sleep(CYCLE_INTERVAL_SECONDS)
         except KeyboardInterrupt:
             logger.info("Bot stopped by user")
             break

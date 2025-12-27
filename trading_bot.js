@@ -4,17 +4,35 @@
  */
 
 // Load environment variables from .env file
-require('dotenv').config();
-
 const fs = require('fs');
 const path = require('path');
 
+// Determine environment (defaults to 'local')
+const env = (process.env.ENVIRONMENT || 'local').toLowerCase();
+const envFile = `.env.${env}`;
+
+// Load environment-specific .env file
+if (fs.existsSync(envFile)) {
+    require('dotenv').config({ path: envFile });
+    console.log(`Loaded environment from ${envFile}`);
+} else {
+    // Fallback to .env if environment-specific file doesn't exist
+    require('dotenv').config();
+    console.log('Loaded environment from .env');
+}
+
 // --- CONFIGURATION ---
-const WATCHLIST = ['SPY', 'QQQ', 'TSLA', 'NVDA']; // ETFs and stocks
-const OPTIONS_WATCHLIST = ['SPY', 'QQQ']; // Tickers to monitor for options
-const MAX_DRAWDOWN_PCT = 0.10; // Sell if loss > 10%
-const WASH_SALE_DAYS = 31; // IRS rule is 30 days; we use 31 to be safe
-const LOG_FILE = 'bot_state.json';
+const WATCHLIST = process.env.WATCHLIST 
+    ? process.env.WATCHLIST.split(',').map(s => s.trim())
+    : ['SPY', 'QQQ', 'TSLA', 'NVDA']; // ETFs and stocks
+const OPTIONS_WATCHLIST = process.env.OPTIONS_WATCHLIST
+    ? process.env.OPTIONS_WATCHLIST.split(',').map(s => s.trim())
+    : ['SPY', 'QQQ']; // Tickers to monitor for options
+const MAX_DRAWDOWN_PCT = parseFloat(process.env.MAX_DRAWDOWN_PCT || '0.10'); // Sell if loss > 10%
+const WASH_SALE_DAYS = parseInt(process.env.WASH_SALE_DAYS || '31'); // IRS rule is 30 days; we use 31 to be safe
+const LOG_FILE = process.env.LOG_FILE || 'bot_state.json';
+const CYCLE_INTERVAL_SECONDS = parseInt(process.env.CYCLE_INTERVAL_SECONDS || '900'); // 15 minutes default
+const ENVIRONMENT = (process.env.ENVIRONMENT || 'local').toLowerCase();
 
 // Broker configuration (from environment variables)
 const BROKERS = {
@@ -23,13 +41,17 @@ const BROKERS = {
         apiKey: process.env.SCHWAB_API_KEY || '',
         appSecret: process.env.SCHWAB_APP_SECRET || '',
         callbackUrl: process.env.SCHWAB_CALLBACK_URL || 'https://127.0.0.1:8182/',
-        tokenPath: process.env.SCHWAB_TOKEN_PATH || './schwab_token.json'
+        tokenPath: process.env.SCHWAB_TOKEN_PATH || './schwab_token.json',
+        accountId: process.env.SCHWAB_ACCOUNT_ID || '', // Optional: specific account ID
+        baseUrl: process.env.SCHWAB_BASE_URL || '' // Optional: for sandbox/production URLs
     },
     robinhood: {
         enabled: process.env.ROBINHOOD_ENABLED === 'true',
         username: process.env.ROBINHOOD_USERNAME || '',
         password: process.env.ROBINHOOD_PASSWORD || '',
-        mfaCode: process.env.ROBINHOOD_MFA_CODE || ''
+        mfaCode: process.env.ROBINHOOD_MFA_CODE || '',
+        apiKey: process.env.ROBINHOOD_API_KEY || '', // If using API key instead of username/password
+        deviceToken: process.env.ROBINHOOD_DEVICE_TOKEN || '' // Device token for authentication
     }
 };
 
@@ -535,20 +557,22 @@ class TradingBot {
         }
 
         console.log('Starting trading bot...');
+        console.log(`Environment: ${ENVIRONMENT}`);
         console.log(`Watching: ${WATCHLIST.join(', ')}`);
         console.log(`Options watchlist: ${OPTIONS_WATCHLIST.join(', ')}`);
+        console.log(`Cycle interval: ${CYCLE_INTERVAL_SECONDS} seconds`);
 
         // Run initial cycle
         await this.runBotCycle();
 
-        // Set up interval to run every 15 minutes
+        // Set up interval based on configured cycle interval
         setInterval(async () => {
             try {
                 await this.runBotCycle();
             } catch (error) {
                 console.error('Error in bot cycle:', error);
             }
-        }, 900000); // 15 minutes in milliseconds
+        }, CYCLE_INTERVAL_SECONDS * 1000); // Convert seconds to milliseconds
     }
 }
 
