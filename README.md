@@ -220,14 +220,19 @@ charlie_robin_bot/
 ├── main.py                      # Original reference file
 ├── trading_bot.py               # Python trading bot
 ├── trading_bot.js               # JavaScript trading bot
-├── requirements.txt              # Python dependencies
-├── package.json                 # Node.js dependencies
+├── test_connection.py           # Python connection test script
+├── test_connection.js           # JavaScript connection test script
+├── requirements.txt             # Python dependencies
+├── package.json                # Node.js dependencies
 ├── env.local.example            # Local environment template
 ├── env.sandbox.example          # Sandbox environment template
 ├── env.production.example       # Production environment template
 ├── .env.example                 # Generic environment template
+├── setup_env.sh                 # Environment setup script (bash)
+├── setup_env.ps1                # Environment setup script (PowerShell)
 ├── .gitignore                   # Git ignore rules
 ├── README.md                    # This file
+├── ENV_SETUP.md                 # Environment configuration guide
 ├── bot_state.json               # Bot state (created at runtime)
 ├── bot_state_sandbox.json      # Sandbox bot state (created at runtime)
 ├── bot_state_production.json   # Production bot state (created at runtime)
@@ -306,6 +311,59 @@ python trading_bot.py
 - **Never commit production credentials** to version control
 - Use **sandbox environments** for testing before production
 
+## Testing Connections
+
+Before running the bot, test your broker connections to ensure credentials are configured correctly:
+
+### Python
+```bash
+# Test with default environment (local)
+python test_connection.py
+
+# Test with specific environment
+ENVIRONMENT=sandbox python test_connection.py
+ENVIRONMENT=production python test_connection.py
+```
+
+### JavaScript
+```bash
+# Test with default environment (local)
+node test_connection.js
+# or using npm
+npm test
+
+# Test with specific environment
+ENVIRONMENT=sandbox node test_connection.js
+ENVIRONMENT=production node test_connection.js
+```
+
+The test script will:
+- ✓ Verify broker credentials are configured
+- ✓ Test API connection and authentication
+- ✓ Retrieve account information
+- ✓ Test market data retrieval
+- ✓ Display connection status and details
+
+**Example Output**:
+```
+============================================================
+Trading Bot Connection Test
+============================================================
+
+ℹ Environment: local
+ℹ Testing brokers based on configuration...
+
+============================================================
+Testing Charles Schwab Connection
+============================================================
+
+✓ Successfully connected to Charles Schwab API
+✓ Successfully retrieved account information
+  Account ID: 123456789
+✓ Successfully retrieved 5 positions
+✓ Successfully retrieved market data for SPY: $450.23
+```
+
 ## Troubleshooting
 
 ### Python Issues
@@ -318,10 +376,12 @@ pip install --upgrade -r requirements.txt
 **Schwab Authentication**:
 - Ensure callback URL matches your app configuration
 - Delete `schwab_token.json` and re-authenticate if needed
+- Run `python test_connection.py` to verify credentials
 
 **Robinhood Login**:
 - Check if 2FA is enabled and provide MFA code
 - Ensure credentials are correct
+- Run `python test_connection.py` to verify credentials
 
 ### JavaScript Issues
 
@@ -333,6 +393,7 @@ npm install
 **Schwab API**:
 - Ensure `@allensarkisyan/schwab-td-ameritrade-api` is installed
 - Check token path permissions
+- Run `node test_connection.js` to verify credentials
 
 ## Contributing
 

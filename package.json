@@ -5,7 +5,8 @@
   "main": "trading_bot.js",
   "scripts": {
     "start": "node trading_bot.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test_connection.js",
+    "test:connection": "node test_connection.js"
   },
   "keywords": [
     "trading",
