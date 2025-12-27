@@ -434,6 +434,8 @@ For a quick deployment guide, see [QUICK_START.md](QUICK_START.md).
 
 For detailed deployment instructions across different environments (local, sandbox, production), see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+**Looking for free/cheap hosting?** See [FREE_DEPLOYMENT.md](FREE_DEPLOYMENT.md) for recommendations including Oracle Cloud (free forever), Railway, and other affordable options.
+
 ## Future Enhancements
 
 - [ ] Add more technical indicators

@@ -192,8 +192,18 @@ df -h
 grep CYCLE_INTERVAL .env.production
 ```
 
+## 💰 Free & Low-Cost Hosting
+
+Looking for free or cheap platforms to deploy? See [FREE_DEPLOYMENT.md](FREE_DEPLOYMENT.md) for:
+- **Oracle Cloud** - Free forever (recommended)
+- **Railway.app** - Easiest setup ($5/month credit)
+- **DigitalOcean** - Best value ($4-6/month)
+- **Hetzner** - Best performance/price (€4/month)
+- And more options with free credits!
+
 ## 📚 More Information
 
+- **Free/Cheap Hosting**: See [FREE_DEPLOYMENT.md](FREE_DEPLOYMENT.md)
 - **Full Deployment Guide**: See [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Environment Setup**: See [ENV_SETUP.md](ENV_SETUP.md)
 - **Configuration**: See [README.md](README.md)
