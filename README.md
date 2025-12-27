@@ -410,6 +410,30 @@ For issues related to:
 - **Robinhood**: Note that there's no official API support
 - **Bot Logic**: Review the code comments and adjust as needed
 
+## Deployment
+
+### Quick Start
+
+For a quick deployment guide, see [QUICK_START.md](QUICK_START.md).
+
+### Quick Deploy
+
+```bash
+# Using the deployment script
+./deploy.sh local      # Local development
+./deploy.sh sandbox    # Sandbox/testing
+./deploy.sh production # Production (be careful!)
+```
+
+### Deployment Options
+
+1. **Docker** - Containerized deployment (recommended)
+2. **systemd** - Linux service management
+3. **PM2** - Node.js process manager
+4. **Cloud** - AWS, GCP, Azure, Heroku
+
+For detailed deployment instructions across different environments (local, sandbox, production), see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Future Enhancements
 
 - [ ] Add more technical indicators

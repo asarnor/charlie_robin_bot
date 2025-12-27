@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  trading-bot-python:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-bot-python
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    env_file:
+      - .env.${ENVIRONMENT:-production}
+    volumes:
+      - ./bot_state_${ENVIRONMENT:-production}.json:/app/bot_state_${ENVIRONMENT:-production}.json:rw
+      - ./schwab_token_${ENVIRONMENT:-production}.json:/app/schwab_token_${ENVIRONMENT:-production}.json:rw
+      - ./logs:/app/logs:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "test_connection.py"]
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      start_period: 1m
+
+  trading-bot-js:
+    build:
+      context: .
+      dockerfile: Dockerfile.js
+    container_name: trading-bot-js
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    env_file:
+      - .env.${ENVIRONMENT:-production}
+    volumes:
+      - ./bot_state_${ENVIRONMENT:-production}.json:/app/bot_state_${ENVIRONMENT:-production}.json:rw
+      - ./schwab_token_${ENVIRONMENT:-production}.json:/app/schwab_token_${ENVIRONMENT:-production}.json:rw
+      - ./logs:/app/logs:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "test_connection.js"]
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      start_period: 1m
+
