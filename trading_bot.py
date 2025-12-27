@@ -129,6 +129,21 @@ class BrokerInterface(ABC):
     def is_etf(self, ticker: str) -> bool:
         """Check if ticker is an ETF"""
         pass
+    
+    @abstractmethod
+    def get_portfolio_summary(self) -> Dict:
+        """
+        Get comprehensive portfolio summary
+        Returns dict with:
+        - total_value: Total portfolio value
+        - cash_balance: Available cash
+        - total_equity: Total equity value
+        - positions_count: Number of positions
+        - total_gain_loss: Total gain/loss amount
+        - total_gain_loss_pct: Total gain/loss percentage
+        - positions: List of position details
+        """
+        pass
 
 
 class SchwabBroker(BrokerInterface):
@@ -300,6 +315,95 @@ class SchwabBroker(BrokerInterface):
         except Exception as e:
             logger.error(f"Error checking ETF status: {e}")
             return False
+    
+    def get_portfolio_summary(self) -> Dict:
+        """Get comprehensive portfolio summary"""
+        if not self.connected:
+            return {}
+        
+        try:
+            # Get account info
+            account_info = self.get_account_info()
+            if not account_info:
+                return {}
+            
+            account_id = account_info.get('accountId')
+            if not account_id:
+                return {}
+            
+            # Get account details with balances
+            try:
+                account_details = self.client.get_account(account_id, fields=['positions', 'orders'])
+            except:
+                # Fallback: use account_info if get_account doesn't work
+                account_details = account_info
+            
+            # Get positions
+            positions = self.get_positions()
+            
+            # Calculate totals from account details
+            if 'currentBalances' in account_details:
+                cash_balance = float(account_details.get('currentBalances', {}).get('cashBalance', 0))
+                total_value = float(account_details.get('currentBalances', {}).get('liquidationValue', 0))
+                total_equity = float(account_details.get('currentBalances', {}).get('equity', 0))
+            else:
+                # Fallback values
+                cash_balance = float(account_info.get('cashBalance', 0))
+                total_value = float(account_info.get('liquidationValue', 0))
+                total_equity = float(account_info.get('equity', 0))
+            
+            # Process positions
+            position_details = []
+            total_cost_basis = 0.0
+            total_current_value = 0.0
+            
+            for pos in positions:
+                symbol = pos.get('instrument', {}).get('symbol', 'N/A')
+                quantity = float(pos.get('longQuantity', 0) or pos.get('shortQuantity', 0))
+                avg_price = float(pos.get('averagePrice', 0))
+                current_price = float(pos.get('currentPrice', 0))
+                
+                cost_basis = quantity * avg_price
+                current_value = quantity * current_price
+                gain_loss = current_value - cost_basis
+                gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
+                
+                total_cost_basis += cost_basis
+                total_current_value += current_value
+                
+                position_details.append({
+                    'symbol': symbol,
+                    'quantity': quantity,
+                    'average_price': avg_price,
+                    'current_price': current_price,
+                    'cost_basis': cost_basis,
+                    'current_value': current_value,
+                    'gain_loss': gain_loss,
+                    'gain_loss_pct': gain_loss_pct
+                })
+            
+            # Calculate total gain/loss
+            total_gain_loss = total_current_value - total_cost_basis
+            total_gain_loss_pct = (total_gain_loss / total_cost_basis * 100) if total_cost_basis > 0 else 0
+            
+            return {
+                'account_id': account_id,
+                'account_type': account_info.get('type', 'N/A'),
+                'total_value': total_value,
+                'cash_balance': cash_balance,
+                'total_equity': total_equity,
+                'positions_count': len(positions),
+                'total_cost_basis': total_cost_basis,
+                'total_current_value': total_current_value,
+                'total_gain_loss': total_gain_loss,
+                'total_gain_loss_pct': total_gain_loss_pct,
+                'positions': position_details
+            }
+        except Exception as e:
+            logger.error(f"Error getting portfolio summary: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+            return {}
 
 
 class RobinhoodBroker(BrokerInterface):
@@ -462,6 +566,100 @@ class RobinhoodBroker(BrokerInterface):
         except Exception as e:
             logger.error(f"Error checking ETF status: {e}")
             return False
+    
+    def get_portfolio_summary(self) -> Dict:
+        """Get comprehensive portfolio summary"""
+        if not self.connected:
+            return {}
+        
+        try:
+            # Get account info
+            account_info = self.get_account_info()
+            if not account_info:
+                return {}
+            
+            # Get positions
+            positions = self.rh.get_open_stock_positions()
+            if not positions:
+                positions = []
+            
+            # Get account balances
+            cash_balance = float(account_info.get('cash', 0) or account_info.get('cash_available_for_withdrawal', 0))
+            total_value = float(account_info.get('portfolio_value', 0) or account_info.get('equity', 0))
+            total_equity = float(account_info.get('equity', 0) or total_value)
+            
+            # Process positions
+            position_details = []
+            total_cost_basis = 0.0
+            total_current_value = 0.0
+            
+            for pos in positions:
+                try:
+                    # Get position details
+                    instrument_url = pos.get('instrument', '')
+                    if not instrument_url:
+                        continue
+                    
+                    # Get symbol from instrument
+                    instrument = self.rh.get_instrument_by_url(instrument_url)
+                    if not instrument:
+                        continue
+                    
+                    symbol = instrument.get('symbol', 'N/A')
+                    quantity = float(pos.get('quantity', 0))
+                    avg_price = float(pos.get('average_buy_price', 0))
+                    
+                    # Get current price
+                    quote = self.rh.get_quotes(symbol)
+                    if quote:
+                        current_price = float(quote[0].get('last_trade_price', 0))
+                    else:
+                        current_price = avg_price
+                    
+                    cost_basis = quantity * avg_price
+                    current_value = quantity * current_price
+                    gain_loss = current_value - cost_basis
+                    gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
+                    
+                    total_cost_basis += cost_basis
+                    total_current_value += current_value
+                    
+                    position_details.append({
+                        'symbol': symbol,
+                        'quantity': quantity,
+                        'average_price': avg_price,
+                        'current_price': current_price,
+                        'cost_basis': cost_basis,
+                        'current_value': current_value,
+                        'gain_loss': gain_loss,
+                        'gain_loss_pct': gain_loss_pct
+                    })
+                except Exception as e:
+                    logger.warning(f"Error processing position: {e}")
+                    continue
+            
+            # Calculate total gain/loss
+            total_gain_loss = total_current_value - total_cost_basis
+            total_gain_loss_pct = (total_gain_loss / total_cost_basis * 100) if total_cost_basis > 0 else 0
+            
+            return {
+                'account_id': account_info.get('account_number', 'N/A'),
+                'account_type': account_info.get('account_type', 'N/A'),
+                'total_value': total_value,
+                'cash_balance': cash_balance,
+                'total_equity': total_equity,
+                'positions_count': len(position_details),
+                'total_cost_basis': total_cost_basis,
+                'total_current_value': total_current_value,
+                'total_gain_loss': total_gain_loss,
+                'total_gain_loss_pct': total_gain_loss_pct,
+                'positions': position_details
+            }
+        except Exception as e:
+            logger.error(f"Error getting portfolio summary: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+            return {}
 
 
 # --- CORE LOGIC MODULES ---

@@ -222,6 +222,7 @@ charlie_robin_bot/
 ├── trading_bot.js               # JavaScript trading bot
 ├── test_connection.py           # Python connection test script
 ├── test_connection.js           # JavaScript connection test script
+├── get_portfolio.py             # Python portfolio summary script
 ├── requirements.txt             # Python dependencies
 ├── package.json                # Node.js dependencies
 ├── env.local.example            # Local environment template
@@ -310,6 +311,49 @@ python trading_bot.py
 - Robinhood integration uses unofficial APIs (may violate ToS)
 - **Never commit production credentials** to version control
 - Use **sandbox environments** for testing before production
+
+## Portfolio Summary
+
+Get a comprehensive view of your portfolio:
+
+### Python
+```bash
+# View portfolio summary
+python get_portfolio.py
+
+# Save to JSON file
+python get_portfolio.py --json
+```
+
+### Usage in Code
+```python
+from trading_bot import TradingBot
+
+bot = TradingBot()
+if bot.brokers:
+    broker = bot.brokers[0]
+    summary = broker.get_portfolio_summary()
+    
+    print(f"Total Value: ${summary['total_value']:,.2f}")
+    print(f"Cash Balance: ${summary['cash_balance']:,.2f}")
+    print(f"Total Gain/Loss: ${summary['total_gain_loss']:,.2f} ({summary['total_gain_loss_pct']:.2f}%)")
+    print(f"Positions: {summary['positions_count']}")
+    
+    for pos in summary['positions']:
+        print(f"{pos['symbol']}: {pos['quantity']} shares @ ${pos['current_price']:.2f}")
+```
+
+The portfolio summary includes:
+- Total portfolio value
+- Cash balance
+- Total equity
+- Number of positions
+- Total gain/loss (amount and percentage)
+- Detailed position breakdown with:
+  - Symbol, quantity, average price
+  - Current price and value
+  - Cost basis
+  - Gain/loss per position
 
 ## Testing Connections
 

@@ -146,6 +146,14 @@ class BrokerInterface {
     async isETF(ticker) {
         throw new Error('isETF() must be implemented');
     }
+
+    /**
+     * Get comprehensive portfolio summary
+     * @returns {Promise<Object>}
+     */
+    async getPortfolioSummary() {
+        throw new Error('getPortfolioSummary() must be implemented');
+    }
 }
 
 class SchwabBroker extends BrokerInterface {
@@ -317,6 +325,88 @@ class SchwabBroker extends BrokerInterface {
             return false;
         }
     }
+
+    async getPortfolioSummary() {
+        if (!this.connected) return {};
+        try {
+            const accountInfo = await this.getAccountInfo();
+            if (!accountInfo || !accountInfo.accountId) return {};
+
+            const accountId = accountInfo.accountId;
+            let accountDetails;
+            try {
+                accountDetails = await this.client.getAccount(accountId, ['positions', 'orders']);
+            } catch (error) {
+                accountDetails = accountInfo;
+            }
+
+            const positions = await this.getPositions();
+
+            let cashBalance = 0;
+            let totalValue = 0;
+            let totalEquity = 0;
+
+            if (accountDetails.currentBalances) {
+                cashBalance = parseFloat(accountDetails.currentBalances.cashBalance || 0);
+                totalValue = parseFloat(accountDetails.currentBalances.liquidationValue || 0);
+                totalEquity = parseFloat(accountDetails.currentBalances.equity || 0);
+            } else {
+                cashBalance = parseFloat(accountInfo.cashBalance || 0);
+                totalValue = parseFloat(accountInfo.liquidationValue || 0);
+                totalEquity = parseFloat(accountInfo.equity || 0);
+            }
+
+            const positionDetails = [];
+            let totalCostBasis = 0;
+            let totalCurrentValue = 0;
+
+            for (const pos of positions) {
+                const symbol = pos.instrument?.symbol || 'N/A';
+                const quantity = parseFloat(pos.longQuantity || pos.shortQuantity || 0);
+                const avgPrice = parseFloat(pos.averagePrice || 0);
+                const currentPrice = parseFloat(pos.currentPrice || 0);
+
+                const costBasis = quantity * avgPrice;
+                const currentValue = quantity * currentPrice;
+                const gainLoss = currentValue - costBasis;
+                const gainLossPct = costBasis > 0 ? (gainLoss / costBasis * 100) : 0;
+
+                totalCostBasis += costBasis;
+                totalCurrentValue += currentValue;
+
+                positionDetails.push({
+                    symbol,
+                    quantity,
+                    average_price: avgPrice,
+                    current_price: currentPrice,
+                    cost_basis: costBasis,
+                    current_value: currentValue,
+                    gain_loss: gainLoss,
+                    gain_loss_pct: gainLossPct
+                });
+            }
+
+            const totalGainLoss = totalCurrentValue - totalCostBasis;
+            const totalGainLossPct = totalCostBasis > 0 ? (totalGainLoss / totalCostBasis * 100) : 0;
+
+            return {
+                account_id: accountId,
+                account_type: accountInfo.type || 'N/A',
+                total_value: totalValue,
+                cash_balance: cashBalance,
+                total_equity: totalEquity,
+                positions_count: positions.length,
+                total_cost_basis: totalCostBasis,
+                total_current_value: totalCurrentValue,
+                total_gain_loss: totalGainLoss,
+                total_gain_loss_pct: totalGainLossPct,
+                positions: positionDetails
+            };
+        } catch (error) {
+            console.error('Error getting portfolio summary:', error);
+            return {};
+        }
+    }
 }
 
 class RobinhoodBroker extends BrokerInterface {
@@ -385,6 +475,13 @@ class RobinhoodBroker extends BrokerInterface {
         if (!this.connected) return false;
         // Implement ETF check for Robinhood
         return false;
+    }
+
+    async getPortfolioSummary() {
+        if (!this.connected) return {};
+        // Note: Robinhood implementation would go here
+        // Similar to Python version but using robin_stocks equivalent
+        return {};
     }
 }
 
